@@ -1,12 +1,7 @@
 import psycopg2
+from app.core.config import get_pg_connection_kwargs
 
-conn = psycopg2.connect(
-    host='db.lvraaokughgsnocpwlgu.supabase.co',
-    database='postgres',
-    user='postgres',
-    password='***REMOVED***',
-    port=5432
-)
+conn = psycopg2.connect(**get_pg_connection_kwargs())
 
 cur = conn.cursor()
 try:
