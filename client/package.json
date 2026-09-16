@@ -1,0 +1,16 @@
+{
+    "@supabase/supabase-js": "^2.110.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+  },
+    "eject": "react-scripts eject",
+    "logos:sync": "node scripts/generate-logo-map.js"
+  },
+    ]
+  },
+    ],
+    ]
+  },
+  },
+  }
+}
