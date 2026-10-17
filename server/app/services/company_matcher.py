@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import logging
 import math
 from typing import Dict, Any, List, Optional, Sequence
@@ -27,6 +28,27 @@ def _load_branch_mapping() -> Dict[str, List[str]]:
         return {}
 
 BRANCH_MAPPING = _load_branch_mapping()
+
+# Values a JD uses to mean "no branch restriction". These are wildcards, not
+# branch names, and must bypass the allow-list check entirely.
+OPEN_TO_ALL_BRANCH_TOKENS = {
+    "any", "any branch", "all", "all branches", "any discipline", "all disciplines",
+    "open to all", "any stream", "all streams", "any engineering branch",
+    "all engineering branches", "no restriction", "any degree",
+}
+
+
+def _normalize_branch(value: str) -> str:
+    """Lowercase and collapse punctuation/spacing so 'Maths & Computing',
+    'Mathematics and Computing' and 'maths and computing' compare equal."""
+    text = (value or "").lower().strip()
+    text = text.replace("&", " and ")
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _is_open_to_all_branches(company_branches: List[str]) -> bool:
+    return any(_normalize_branch(b) in OPEN_TO_ALL_BRANCH_TOKENS for b in company_branches if b)
 
 class CompanyMatcher:
     """
@@ -92,29 +114,45 @@ class CompanyMatcher:
 
         # 2. Branch Eligibility
         company_branches = company_data.get("required_branches") or company_data.get("branch", [])
-        if company_branches:
+
+        # "Any Branch" is a wildcard meaning no branch restriction, not a branch
+        # literally named "Any Branch". It was previously looked up in
+        # BRANCH_MAPPING, missed, and added to the allowed set verbatim - so the
+        # substring test became "any branch" in "mathematics and computing",
+        # which is False, and every candidate was rejected from the 18 companies
+        # that are explicitly open to everyone.
+        if company_branches and not _is_open_to_all_branches(company_branches):
+            # Compare on normalized forms so punctuation and spelling variants
+            # match: a JD saying "Maths & Computing" (32 entries in the DB) never
+            # matched a candidate's "Mathematics and Computing" under raw
+            # lowercase substring comparison.
             allowed_branches = set()
             for cb in company_branches:
-                cb_lower = cb.lower()
+                cb_norm = _normalize_branch(cb)
                 found_bucket = False
                 for bucket, members in BRANCH_MAPPING.items():
-                    if cb_lower in [m.lower() for m in members]:
+                    if cb_norm in [_normalize_branch(m) for m in members]:
                         for m in members:
-                            allowed_branches.add(m.lower())
+                            allowed_branches.add(_normalize_branch(m))
                         found_bucket = True
                         break
                 if not found_bucket:
-                    allowed_branches.add(cb_lower)
-            
-            candidate_branch = ""
-            if education_list:
-                candidate_branch = (education_list[0].get("field") or "").lower()
-                if not candidate_branch:
-                    candidate_branch = (education_list[0].get("degree") or "").lower()
+                    allowed_branches.add(cb_norm)
 
-            if not candidate_branch or not any(b in candidate_branch for b in allowed_branches):
+            candidate_branch_raw = ""
+            if education_list:
+                candidate_branch_raw = education_list[0].get("field") or education_list[0].get("degree") or ""
+            candidate_branch = _normalize_branch(candidate_branch_raw)
+
+            # Match either direction: "cse" should satisfy a company asking for
+            # "computer science and engineering", and vice versa.
+            matched = candidate_branch and any(
+                b and (b in candidate_branch or candidate_branch in b) for b in allowed_branches
+            )
+            if not matched:
                 eligible = False
-                reasons.append(f"Branch '{candidate_branch}' is not in the allowed list: {', '.join(company_branches)}.")
+                shown = candidate_branch_raw or "unknown"
+                reasons.append(f"Branch '{shown}' is not in the allowed list: {', '.join(company_branches)}.")
 
         # 3. DSA Required
         dsa_required = company_data.get("dsa_required", False)
