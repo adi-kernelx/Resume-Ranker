@@ -185,9 +185,3 @@ A typical upload takes about 15 seconds on a warm container, mostly LLM extracti
 |---|---|
 | **Aditya Gupta** ([@adi-kernelx](https://github.com/adi-kernelx)) | ML pipeline — resume parser, LLM extraction, GitHub enrichment, embeddings, company matching — plus the Groq migration and backend performance work |
 | **Aditya Onam** ([@AdityaOnam](https://github.com/AdityaOnam)) | Migration to FastAPI and Supabase, ATS dashboard and UI redesign, deployment |
-
----
-
-## Contact
-
-Questions about the architecture or implementation? Email **aditya.gupta.cloud.1@gmail.com**.
