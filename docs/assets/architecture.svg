@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="t d">
+  <title id="t">Resume Ranker system architecture</title>
+  <desc id="d">React SPA on Vercel calls a FastAPI backend on Google Cloud Run, which runs a five-step background pipeline (parse, ATS score, embed, match, rank and save), calls Groq and the GitHub API, and stores data in Supabase Postgres, Storage and Auth.</desc>
+
+  <rect x="0" y="0" width="1280" height="800" rx="16" fill="#161826"/>
+
+  <!-- Heading -->
+  <text x="48" y="56" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="26px" font-weight="700" fill="#e9e9ed">Resume Ranker</text>
+  <text x="48" y="82" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14px" fill="#8e91a1">System architecture · resume upload → ATS score → ranked company matches</text>
+
+  <!-- ============ CLIENT ============ -->
+  <text x="48" y="122" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.4px" fill="#8e91a1">CLIENT</text>
+
+  <rect x="48" y="136" width="240" height="64" rx="10" fill="#1d1f2c" stroke="#42475e" stroke-width="1"/>
+  <text x="68" y="162" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14px" font-weight="600" fill="#e9e9ed">Candidate / recruiter</text>
+  <text x="68" y="182" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Uploads a PDF or DOCX resume</text>
+
+  <path d="M168,200 V232" fill="none" stroke="#8e91a1" stroke-width="1.5"/>
+
+  <rect x="48" y="236" width="240" height="176" rx="10" fill="#1d1f2c" stroke="#42475e" stroke-width="1"/>
+  <text x="68" y="263" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="17px" font-weight="700" fill="#e9e9ed">React SPA</text>
+  <rect x="212" y="248" width="60" height="22" rx="11" fill="#9184d9" fill-opacity="0.12" stroke="#9184d9" stroke-opacity="0.45" stroke-width="1"/>
+  <text x="242" y="263" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" font-weight="500" fill="#b4a8eb">Vercel</text>
+  <text x="68" y="292" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">• React 18 · Tailwind · React Query</text>
+  <text x="68" y="314" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">• Supabase Auth session (JWT)</text>
+  <text x="68" y="336" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">• Upload with live job polling</text>
+  <text x="68" y="358" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">• ATS dashboard and leaderboard</text>
+  <text x="68" y="380" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">• Per-company score breakdowns</text>
+  <text x="68" y="402" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">• PDF report export</text>
+
+  <!-- SPA -> backend -->
+  <text x="318" y="284" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10px" fill="#8e91a1">REST</text>
+  <text x="318" y="296" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10px" fill="#8e91a1">+ JWT</text>
+  <path d="M288,304 H344" fill="none" stroke="#8e91a1" stroke-width="1.5"/>
+
+  <!-- SPA -> Supabase Auth -->
+  <text x="310" y="560" text-anchor="middle" transform="rotate(-90 310 560)" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10px" fill="#8e91a1">sign-in</text>
+
+  <!-- ============ BACKEND ============ -->
+  <rect x="348" y="136" width="584" height="456" rx="12" fill="#1d1f2c" stroke="#9184d9" stroke-opacity="0.65" stroke-width="1.5"/>
+  <text x="368" y="166" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="17px" font-weight="700" fill="#e9e9ed">FastAPI backend</text>
+  <rect x="622" y="149" width="292" height="24" rx="12" fill="#9184d9" fill-opacity="0.12" stroke="#9184d9" stroke-opacity="0.45" stroke-width="1"/>
+  <text x="768" y="165" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" font-weight="500" fill="#b4a8eb">Google Cloud Run · Docker · 1 vCPU / 2 GiB</text>
+
+  <rect x="366" y="186" width="128" height="28" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <text x="430" y="205" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12px" fill="#b4a8eb">/api/resumes</text>
+  <rect x="506" y="186" width="128" height="28" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <text x="570" y="205" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12px" fill="#b4a8eb">/api/companies</text>
+  <rect x="646" y="186" width="128" height="28" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <text x="710" y="205" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12px" fill="#b4a8eb">/api/analytics</text>
+  <rect x="786" y="186" width="128" height="28" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <text x="850" y="205" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12px" fill="#b4a8eb">/warmup</text>
+
+  <text x="366" y="242" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.4px" fill="#8e91a1">BACKGROUND UPLOAD PIPELINE</text>
+
+  <rect x="366" y="252" width="548" height="46" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <circle cx="390" cy="275" r="12" fill="#9184d9" fill-opacity="0.18" stroke="#9184d9"/>
+  <text x="390" y="279" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12px" font-weight="700" fill="#b4a8eb">1</text>
+  <text x="414" y="271" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13px" font-weight="600" fill="#e9e9ed">Parse</text>
+  <text x="414" y="288" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">PyMuPDF + Groq JSON extraction + GitHub audit, Bayesian skill merge</text>
+
+  <rect x="366" y="306" width="548" height="46" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <circle cx="390" cy="329" r="12" fill="#9184d9" fill-opacity="0.18" stroke="#9184d9"/>
+  <text x="390" y="333" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12px" font-weight="700" fill="#b4a8eb">2</text>
+  <text x="414" y="325" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13px" font-weight="600" fill="#e9e9ed">ATS score</text>
+  <text x="414" y="342" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Rule-based 0–100: contact, sections, metrics, action verbs, keywords</text>
+
+  <rect x="366" y="360" width="548" height="46" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <circle cx="390" cy="383" r="12" fill="#9184d9" fill-opacity="0.18" stroke="#9184d9"/>
+  <text x="390" y="387" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12px" font-weight="700" fill="#b4a8eb">3</text>
+  <text x="414" y="379" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13px" font-weight="600" fill="#e9e9ed">Embed</text>
+  <text x="414" y="396" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">all-MiniLM-L6-v2 → 384-d resume vector, batched skill embeddings</text>
+
+  <rect x="366" y="414" width="548" height="46" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <circle cx="390" cy="437" r="12" fill="#9184d9" fill-opacity="0.18" stroke="#9184d9"/>
+  <text x="390" y="441" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12px" font-weight="700" fill="#b4a8eb">4</text>
+  <text x="414" y="433" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13px" font-weight="600" fill="#e9e9ed">Match</text>
+  <text x="414" y="450" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Hard filters (CPI, branch, DSA) → bi-encoder top-30 → batched cross-encoder</text>
+
+  <rect x="366" y="468" width="548" height="46" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <circle cx="390" cy="491" r="12" fill="#9184d9" fill-opacity="0.18" stroke="#9184d9"/>
+  <text x="390" y="495" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12px" font-weight="700" fill="#b4a8eb">5</text>
+  <text x="414" y="487" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13px" font-weight="600" fill="#e9e9ed">Rank and save</text>
+  <text x="414" y="504" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">100-point score, per-user ranks, batched writes to Postgres</text>
+
+  <rect x="366" y="524" width="548" height="30" rx="8" fill="#9184d9" fill-opacity="0.06" stroke="#9184d9" stroke-opacity="0.6" stroke-dasharray="5 4"/>
+  <text x="640" y="543" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">∥  Groq gap analysis runs concurrently with steps 3–5, awaited before save</text>
+
+  <text x="366" y="578" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Baked-in offline models: MiniLM-L6 bi-encoder · ms-marco cross-encoder · spaCy</text>
+
+  <!-- ============ EXTERNAL SERVICES ============ -->
+  <text x="972" y="122" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.4px" fill="#8e91a1">EXTERNAL SERVICES</text>
+
+  <rect x="972" y="136" width="260" height="100" rx="10" fill="#1d1f2c" stroke="#42475e" stroke-width="1"/>
+  <text x="992" y="162" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14px" font-weight="600" fill="#e9e9ed">Groq LLM</text>
+  <text x="992" y="184" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11px" fill="#8e91a1">openai/gpt-oss-120b</text>
+  <text x="992" y="203" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Resume + JD extraction, gap analysis</text>
+  <text x="992" y="221" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Multi-key rotation on rate limits</text>
+
+  <rect x="972" y="256" width="260" height="100" rx="10" fill="#1d1f2c" stroke="#42475e" stroke-width="1"/>
+  <text x="992" y="282" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14px" font-weight="600" fill="#e9e9ed">GitHub REST API</text>
+  <text x="992" y="304" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Repos, language bytes, READMEs</text>
+  <text x="992" y="322" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Parallel fetch, 20 s time budget</text>
+  <text x="992" y="340" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Token-authenticated, 5,000 req/hr</text>
+
+  <rect x="972" y="376" width="260" height="100" rx="10" fill="#1d1f2c" stroke="#42475e" stroke-width="1"/>
+  <text x="992" y="402" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14px" font-weight="600" fill="#e9e9ed">GitHub Actions</text>
+  <text x="992" y="424" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Keep-alive workflow every 10 min</text>
+  <text x="992" y="442" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">GET /warmup loads all models</text>
+  <text x="992" y="460" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Pings Supabase to prevent auto-pause</text>
+
+  <path d="M932,186 H968" fill="none" stroke="#8e91a1" stroke-width="1.5"/>
+  <path d="M932,306 H968" fill="none" stroke="#8e91a1" stroke-width="1.5"/>
+  <path d="M972,426 H936" fill="none" stroke="#9184d9" stroke-width="1.5" stroke-dasharray="5 4"/>
+
+  <!-- ============ SUPABASE ============ -->
+  <text x="798" y="622" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10px" fill="#8e91a1">PostgREST</text>
+  <text x="1030" y="608" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10px" fill="#8e91a1">resume files</text>
+
+  <rect x="348" y="636" width="884" height="140" rx="12" fill="#1d1f2c" stroke="#42475e" stroke-width="1"/>
+  <text x="366" y="664" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="17px" font-weight="700" fill="#e9e9ed">Supabase</text>
+  <rect x="452" y="648" width="236" height="22" rx="11" fill="#9184d9" fill-opacity="0.12" stroke="#9184d9" stroke-opacity="0.45" stroke-width="1"/>
+  <text x="570" y="663" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" font-weight="500" fill="#b4a8eb">Postgres · pgvector · Storage · Auth</text>
+
+  <rect x="366" y="680" width="272" height="80" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <text x="382" y="704" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13px" font-weight="600" fill="#e9e9ed">Auth</text>
+  <text x="382" y="725" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Email sign-in, JWT sessions</text>
+  <text x="382" y="743" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Verified on every API call</text>
+
+  <rect x="654" y="680" width="272" height="80" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <text x="670" y="704" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13px" font-weight="600" fill="#e9e9ed">PostgreSQL + pgvector</text>
+  <text x="670" y="725" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">resumes · companies · rankings</text>
+  <text x="670" y="743" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">jobs · ats_history · 384-d vectors</text>
+
+  <rect x="942" y="680" width="272" height="80" rx="8" fill="#222534" stroke="#2e3140" stroke-width="1"/>
+  <text x="958" y="704" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13px" font-weight="600" fill="#e9e9ed">Storage</text>
+  <text x="958" y="725" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Private resumes bucket</text>
+  <text x="958" y="743" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11px" fill="#8e91a1">{user_id}/{uuid}.pdf</text>
+
+  <!-- ============ LEGEND ============ -->
+  <rect x="48" y="636" width="240" height="140" rx="10" fill="#1d1f2c" stroke="#42475e" stroke-width="1"/>
+  <text x="66" y="662" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14px" font-weight="600" fill="#e9e9ed">Legend</text>
+  <path d="M66,684 H104" fill="none" stroke="#8e91a1" stroke-width="1.5"/>
+  <text x="114" y="688" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Request / data flow</text>
+  <path d="M66,708 H104" fill="none" stroke="#9184d9" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="114" y="712" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Scheduled / background</text>
+  <text x="66" y="740" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Cold start: ~30–50 s model load</text>
+  <text x="66" y="758" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11px" fill="#8e91a1">Warm: models stay in memory</text>
+  <!-- connectors drawn last so they sit on top of the Supabase box -->
+  <path d="M288,392 H318 V720 H362" fill="none" stroke="#8e91a1" stroke-width="1.5"/>
+  <path d="M790,592 V676" fill="none" stroke="#8e91a1" stroke-width="1.5"/>
+  <path d="M900,592 V614 H1078 V676" fill="none" stroke="#8e91a1" stroke-width="1.5"/>
+  <!-- arrowheads -->
+  <polygon points="168,235 163.5,226 172.5,226" fill="#8e91a1"/>
+  <polygon points="347,304 338,299.5 338,308.5" fill="#8e91a1"/>
+  <polygon points="365,720 356,715.5 356,724.5" fill="#8e91a1"/>
+  <polygon points="971,186 962,181.5 962,190.5" fill="#8e91a1"/>
+  <polygon points="971,306 962,301.5 962,310.5" fill="#8e91a1"/>
+  <polygon points="933,426 942,421.5 942,430.5" fill="#9184d9"/>
+  <polygon points="790,679 785.5,670 794.5,670" fill="#8e91a1"/>
+  <polygon points="1078,679 1073.5,670 1082.5,670" fill="#8e91a1"/>
+  <polygon points="107,684 98,679.5 98,688.5" fill="#8e91a1"/>
+  <polygon points="107,708 98,703.5 98,712.5" fill="#9184d9"/>
+</svg>

@@ -1,117 +1,193 @@
-# Resume Ranking System
+# Resume Ranker
 
-The Resume Ranking System parses, analyzes, and ranks resumes against company hiring criteria. The system has migrated from a legacy Node.js/Mongoose REST API to a Python FastAPI service integrated with Supabase (PostgreSQL).
+**Upload a resume. Get an ATS score, a ranked list of companies you actually qualify for, and an audit of your GitHub — in one pass.**
 
-## Architecture Overview
+[![Live Demo](https://img.shields.io/badge/demo-live-9184d9)](https://resume-ranker-frontend-psi.vercel.app/)
+[![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)](server)
+[![React](https://img.shields.io/badge/frontend-React%2018-61dafb)](client)
+[![Supabase](https://img.shields.io/badge/database-Supabase%20%2B%20pgvector-3ecf8e)](server/migrations)
+[![Groq](https://img.shields.io/badge/LLM-Groq-f55036)](server/app/services/llm_service.py)
+[![Cloud Run](https://img.shields.io/badge/deploy-Google%20Cloud%20Run-4285f4)](server/Dockerfile)
 
-The system consists of three main components:
-
-1. **Frontend**: A React-based Single Page Application (SPA) styled with Tailwind CSS and enhanced with Framer Motion animations.
-2. **Backend Engine**: A Python-based FastAPI application serving asynchronous HTTP requests. It processes NLP tasks natively, avoiding the overhead of external OS sub-processes.
-3. **Database**: Supabase PostgreSQL for relational tracking of companies, resume data, and computed rankings.
-
-### Pipeline Diagram
-
-![Pipeline Diagram](docs/assets/architecture.png)
-
+**[Try it live →](https://resume-ranker-frontend-psi.vercel.app/)**
 
 ---
 
-## User Interface Highlights
+## Why this exists
 
-### 1. Dashboard & Resume Upload
-Candidates can upload resumes in `.pdf` or `.docx` format. The backend extracts text, runs the evaluation models, and returns the processing result.
+Most resume checkers give you one generic number and the same advice: *add keywords, use action verbs, quantify your impact.* None of them tell you which companies you're actually eligible for, or whether your resume matches the work you've really done.
 
-![Dashboard Upload Screen](docs/assets/home.png)
+Resume Ranker gives you three signals instead of one:
 
-### 2. Company Directory
-Displays criteria (such as minimum CPI, preferred technologies, and core subjects) for engineering companies, sourced from the `BTech_Companies_NLP` dataset.
-
-![Companies Directory](docs/assets/companies.png)
-
-### 3. Analysis & Ranking Leaderboard
-Once analyzed, candidates can view their parsed resume details (Education, Experience, Project Keywords) along with a ranked leaderboard matching them with active companies based on score alignment.
-
-![Ranking Analysis Screen](docs/assets/analysis.png)
+| Signal | What you get |
+|---|---|
+| **ATS score** | A 0–100 score with a five-part breakdown and AI-written feedback on what to fix |
+| **Company match** | Your rank against every company in the index (currently 139), with real eligibility checks — CPI cutoff, allowed branches, DSA requirement — and the reason when you don't qualify |
+| **GitHub audit** | If your resume links a GitHub profile, your public repos are scanned: language usage measured in bytes, skills pulled from READMEs, and projects matched to repos |
 
 ---
 
-## Optimization & Improvements
+## Architecture
 
-### N+1 Query Resolution
-In earlier versions, rendering the analysis dashboard triggered over 300 sequential database queries. This was resolved by implementing bulk fetches using Supabase `.in_()` filters. The `/api/resumes/{uid}` endpoint resolves ranked company metadata in a single batch query, reducing response times from seconds to milliseconds.
+![Resume Ranker architecture](docs/assets/architecture.svg)
 
-### NLP Pipeline Optimization
-Previously, `spaCy` operations ran in an independent Node.js child-process shell per upload. Moving the REST API to Python allows the models to be loaded and cached in RAM on boot, eliminating initialization latency for subsequent uploads.
+The React app on Vercel talks to a FastAPI service on Google Cloud Run. An upload returns immediately with a job ID; the heavy work runs as a background pipeline while the frontend polls for progress. Supabase provides Postgres (with `pgvector` for embeddings), file storage, and authentication.
 
-### Ranking Pipeline Rework
-The scoring/ranking engine (`server/app/services/rank_service.py`, `company_matcher.py`) had a few correctness and performance issues that have since been fixed:
-- **Ranking pool is now scoped per-user.** A resume's rank/`totalResumes` for a company reflects only that user's own resumes, matching the isolation already enforced everywhere else (`GET /resumes/`, all of `analytics.py`) — previously it silently pooled every user's resumes together.
-- **Bi-encoder pre-filter before the CrossEncoder pass.** Only the top-K most similar *eligible* companies (cheap cosine similarity on existing embeddings) run the expensive CrossEncoder transformer; the rest are still scored on every other dimension. This is what previously made a single upload take ~90 seconds against 138 companies. Tunable via `RANKING_CROSS_ENCODER_TOP_K`.
-- **Batched writes.** Re-ranking now issues one `rankings` update per affected resume (and one batched upsert to the `rankings` table), instead of a separate round-trip per company × resume.
-- **Fixed a silent scoring crash.** `compute_company_score` referenced a variable (`education_list`) that was never defined in that method, so every eligible candidate's score calculation threw and was silently dropped by the caller's error handling — eligible companies were effectively never being scored. Fixed.
+For a full walkthrough of every service, endpoint, and design decision, see **[docs/project-overview.md](docs/project-overview.md)**.
 
 ---
 
-## Running Locally
+## How a resume is processed
 
-Run the frontend and backend services in separate terminal sessions.
+1. **Parse** — PyMuPDF extracts text and embedded links (catching GitHub/LinkedIn URLs hidden behind icons). Groq's LLM returns structured JSON for education, experience, and projects, with regex heuristics as a fallback. If a GitHub profile is found, repos, language byte counts, and READMEs are fetched in parallel under a 20-second budget.
+2. **Merge** — Resume text, LLM output, and GitHub evidence vote on each skill through a Bayesian confidence update, so every skill carries both a confidence and its sources (`Resume`, `GitHub (Repo: 49.9%)`, …).
+3. **ATS score** — A deterministic 0–100 score (no LLM), so the same resume always gets the same number.
+4. **Embed** — The profile is encoded into a 384-dimensional vector with `all-MiniLM-L6-v2`.
+5. **Match** — Hard filters remove companies you can't apply to. A fast bi-encoder picks the 30 most similar remaining companies, and only those get the expensive cross-encoder pass, batched into a single call.
+6. **Rank and save** — Scores are ranked against your other uploads and written to Postgres. The LLM gap analysis runs concurrently with steps 4–6, so its network time doesn't add to the total.
 
-### 1. FastAPI Backend
+### ATS score (100 points)
+
+| Component | Points | Checks |
+|---|---|---|
+| Contact info | 15 | Email, phone, LinkedIn or GitHub |
+| Formatting | 20 | Standard sections present and sensibly ordered |
+| Quantifiable metrics | 25 | Numbers, percentages, and amounts in your bullet points |
+| Action verbs | 25 | Variety of strong verbs, detected with spaCy |
+| Keyword density | 15 | Whether listed skills actually appear in your project descriptions |
+
+### Company match score (100 points)
+
+| Component | Points | How it's computed |
+|---|---|---|
+| Skill overlap | 30 | Exact matches plus semantic similarity for related skills |
+| Cross-encoder relevance | 30 | `ms-marco-MiniLM-L-6-v2` reads the job description against your profile |
+| Academic fit | 15 | CPI above the cutoff, and branch fit for the role |
+| Project relevance | 15 | Overlap between your project tech and what the company looks for |
+| Experience | 10 | Relevant work experience |
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Tailwind CSS, TanStack React Query, Framer Motion, jsPDF |
+| Backend | FastAPI, Python 3.10, Pydantic Settings |
+| ML / NLP | sentence-transformers (MiniLM bi-encoder + ms-marco cross-encoder), spaCy, PyMuPDF, python-docx |
+| LLM | Groq (`openai/gpt-oss-120b`), with Gemini and Ollama supported as alternatives |
+| Data | Supabase — Postgres + `pgvector`, Storage, Auth |
+| Deployment | Google Cloud Run (Docker), Vercel, GitHub Actions keep-alive |
+
+---
+
+## Getting started
+
+### Prerequisites
+
+- Python 3.10+ and Node.js 18+
+- A [Supabase](https://supabase.com) project
+- A free [Groq API key](https://console.groq.com/keys)
+- Optional but recommended: a [GitHub token](https://github.com/settings/tokens) with **no scopes** (raises the GitHub API limit from 60 to 5,000 requests per hour)
+
+### 1. Database
+
+Run the SQL files in [`server/migrations/`](server/migrations) in order, in the Supabase SQL editor. Then create a Storage bucket named `resumes`.
+
+### 2. Backend
+
 ```bash
 cd server
 python -m venv venv
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-# source venv/bin/activate
-
+venv\Scripts\activate          # macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
+python -m spacy download en_core_web_sm
+cp .env.example .env           # then fill in the values below
 uvicorn app.main:app --reload --port 8000
 ```
-The backend runs on `http://127.0.0.1:8000`. API docs are available at `http://127.0.0.1:8000/docs`.
 
-Copy `server/.env.example` to `server/.env` and fill in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Before the first run, apply the database migrations in `server/migrations/` in order against your Supabase project (e.g. via the Supabase SQL editor, or `psql` if you have direct DB access) — these create the `jobs`/`ats_history` tables and add ATS/company columns used by the app.
+The first request takes 30–50 seconds while the ML models load. API docs are at `http://localhost:8000/docs`.
 
-For a production deploy, also set `ENVIRONMENT=production` and `FRONTEND_ORIGINS` (a comma-separated list of allowed origins) — the app will refuse to start in production without it.
+### 3. Frontend
 
-#### ML model configuration (works unmodified across machines/deployments)
+```bash
+cd client
+npm install
+cp .env.example .env.local     # then fill in the values below
+npm start
+```
 
-`server/.env.example` documents these; all have sane defaults in `app/core/config.py` so none are required to get started locally:
+The app runs at `http://localhost:3000`.
+
+---
+
+## Environment variables
+
+**Backend — `server/.env`** (full list with comments in [`server/.env.example`](server/.env.example))
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `SUPABASE_URL` | Yes | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-side Supabase key — never expose it to the frontend |
+| `GROQ_API_KEYS` | Yes | One or more Groq keys, comma-separated, rotated on rate limits |
+| `GROQ_MODEL_NAME` | No | Defaults to `openai/gpt-oss-120b` |
+| `GITHUB_TOKEN` | Recommended | Raises the GitHub API limit for profile enrichment |
+| `ENVIRONMENT` | Production | Set to `production` on the server |
+| `FRONTEND_ORIGINS` | Production | Comma-separated allowed origins; the server refuses to start in production without it |
+
+**Frontend — `client/.env.local`**
 
 | Variable | Purpose |
 |---|---|
-| `OLLAMA_MODEL_NAME`, `OLLAMA_HOST`, `OLLAMA_TIMEOUT_SECONDS` | Which local LLM to use for resume/JD parsing and AI feedback, and where Ollama is running (defaults to `localhost:11434` — point this at a remote/containerized Ollama instance if it isn't co-located with the API). |
-| `EMBEDDING_MODEL_NAME`, `CROSS_ENCODER_MODEL_NAME` | HuggingFace model ids for the bi-encoder (fast similarity/embeddings) and cross-encoder (accurate resume↔JD match) models. |
-| `MODEL_CACHE_DIR` | Shared on-disk cache for downloaded HF models (defaults to `server/assets/models/cache`, gitignored). First run on a machine downloads into this folder; a deployment that mounts/pre-seeds this folder as a volume skips the download entirely. |
-| `RANKING_CROSS_ENCODER_TOP_K` | How many top-similarity eligible companies get the expensive CrossEncoder pass per upload (see "Ranking Pipeline Rework" above). |
+| `REACT_APP_API_URI` | Backend URL, e.g. `http://localhost:8000/api` |
+| `REACT_APP_SUPABASE_URL` | Supabase project URL |
+| `REACT_APP_SUPABASE_ANON_KEY` | Supabase public anon key |
 
-If Ollama isn't installed/running, resume parsing and ATS scoring still work (rule-based extraction and scoring) — only the LLM-generated "AI Analysis" narrative on the ATS score card is skipped, gracefully.
+> Frontend variables are bundled into the browser build and are public. Only the anon key belongs there — never the service-role key, Groq keys, or GitHub token.
 
-### 2. React Client
-```bash
-cd client
-npm start
+---
+
+## Project structure
+
 ```
-The frontend runs on `http://localhost:3000` and proxies API requests to the backend on port 8000 (see `client/package.json`'s `"proxy"` field).
+├── client/                 React frontend (Vercel)
+│   └── src/
+│       ├── pages/          Dashboard, ATS dashboard, candidate profile, leaderboard
+│       ├── components/     Upload, score cards, company match breakdowns
+│       └── services/       API client — every backend call goes through here
+├── server/                 FastAPI backend (Cloud Run)
+│   ├── app/
+│   │   ├── api/endpoints/  resumes, companies, analytics routes
+│   │   ├── core/           settings, database client, JWT auth
+│   │   └── services/       parser, LLM, embeddings, matcher, ranking, ATS, GitHub
+│   ├── data/               skill taxonomy, branch equivalences
+│   ├── migrations/         Postgres schema (apply in order)
+│   └── Dockerfile          bakes ML models into the image, verified at build time
+├── docs/                   architecture diagram and project overview
+└── .github/workflows/      keep-alive job for Cloud Run and Supabase
+```
 
 ---
 
-## How to Use the Application
+## Deployment
 
-1. **Upload a resume** — go to the Dashboard (`/` or `/upload`) and drag-and-drop or browse for a `.pdf` or `.docx` file (max 10MB). A step tracker shows live progress (parsing → ATS scoring → embedding → company matching) while the backend processes the file in the background; once done, you're taken to the candidate's result page at `/resumes/:id`.
-2. **Browse companies** — the Companies page (`/companies`) lists all seeded/added companies and their hiring criteria (minimum CPI, required skills, branches, DSA requirement, campus visit status). Use the search bar and the Filters panel (branch, DSA requirement, max min-GPA) to narrow the list.
-3. **Add a company** — from the Companies page, open "Add Company", paste a raw job description, and click "Auto-Fill with AI" to let the LLM extract structured fields (name, role, CPI cutoff, skills, project keywords, DSA/campus-visit flags). Review/edit the fields, then save — existing resumes are re-ranked against the new company in the background.
-4. **Review candidates** — the ATS Dashboard (`/ats`) lists every uploaded candidate with their extracted skills, ATS score, and number of company matches. Click a row to open the candidate's full profile in a side panel (parsed contact info, education, experience, projects, and per-company ranking breakdown). From there you can also delete a resume permanently.
-5. **Leaderboard** (`/leaderboard`) — by default, ranks every candidate by their single best score across any company. Pick a specific company from the picker at the top to instead rank only candidates who have a ranking entry for that company, sorted by that company's score, with an eligible/not-eligible badge per candidate.
+- **Backend** — Docker image on Google Cloud Run (1 vCPU, 2 GiB). All three ML models are downloaded at build time, and the build fails if they can't be loaded offline, so a broken image never ships. Instance-based billing gives the background pipeline full CPU after the HTTP response returns.
+- **Frontend** — Vercel, with `REACT_APP_API_URI` pointing at the Cloud Run URL.
+- **Keep-alive** — A GitHub Actions workflow calls `/warmup` every 10 minutes to keep the models loaded, and pings Supabase so the free-tier project doesn't auto-pause.
+
+A typical upload takes about 15 seconds on a warm container, mostly LLM extraction and cross-encoder re-ranking. A cold start adds 30–50 seconds for model loading.
 
 ---
 
-## Team Contributions
+## Contributors
 
-| Name | Role | Contributions |
-|------|------|--------------|
-| Aditya Onam ([@AdityaOnam](https://github.com/AdityaOnam)) | Model Designer | - Led the development of the weighted scoring algorithm<br>- Implemented the core ranking system architecture<br>- Generated data for model training |
-| Aditya Gupta ([@code-epic-adi](https://github.com/code-epic-adi)) | Data Engineer | - Implemented resume data extraction and preprocessing<br>- Developed the PDF text extraction system<br>- Implemented data validation and cleaning processes<br>- Generated data for model training |
+| | |
+|---|---|
+| **Aditya Gupta** ([@adi-kernelx](https://github.com/adi-kernelx)) | ML pipeline — resume parser, LLM extraction, GitHub enrichment, embeddings, company matching — plus the Groq migration and backend performance work |
+| **Aditya Onam** ([@AdityaOnam](https://github.com/AdityaOnam)) | Migration to FastAPI and Supabase, ATS dashboard and UI redesign, deployment |
 
+---
 
+## Contact
+
+Questions about the architecture or implementation? Email **aditya.gupta.cloud.1@gmail.com**.
