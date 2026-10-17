@@ -10,6 +10,7 @@ import {
   PiArrowRight, PiArrowCounterClockwise, PiCheck, PiWarningCircle, PiX
 } from 'react-icons/pi';
 
+const Dashboard = () => {
   const [uploadStatus, setUploadStatus] = useState('idle'); // idle | uploading | done
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -339,6 +340,9 @@ import {
         {/* Features & Popular Companies */}
         <FeaturesSection />
         <PopularCompanies />
+      </div>
+    </div>
   );
 };
 
+export default Dashboard;

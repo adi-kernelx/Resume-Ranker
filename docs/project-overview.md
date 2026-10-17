@@ -335,12 +335,11 @@ client/
     │   ├── ResumeResultPage.jsx   # Wraps CandidateProfile for the results route
     │   └── Leaderboard.jsx        # Cross-candidate ranking per company
     └── components/
-        ├── common/                # Header, Footer, ProtectedRoute, LoadingSpinner
+        ├── common/                # Header, Footer, ProtectedRoute
         ├── Dashboard/             # Home dashboard, FeaturesSection, PopularCompanies
         ├── Company/               # CompaniesShowcase (browse), AddCompanyModal (create)
         ├── CompanyMatch/          # ScoreBreakdown, SkillGapTable (used in expand rows)
-        ├── ATS/                   # ATSScoreCard
-        └── ui/                    # skeleton loaders
+        └── ATS/                   # ATSScoreCard
 ```
 
 ### 5.2 Routes

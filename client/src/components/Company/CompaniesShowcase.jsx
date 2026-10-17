@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getCompanies } from '../../services/api';
 import AddCompanyModal from './AddCompanyModal';
 import LOGO_MAP from './logoMap.json';
 import { 
@@ -182,12 +183,14 @@ const CompaniesShowcase = () => {
 
   const resetPage = () => setPage(1);
 
+  return (
     <div className="flex-1 overflow-y-auto px-6 md:px-8 py-8 bg-bg">
       <div className="max-w-[1180px] mx-auto space-y-6">
         {/* Header */}
         <div>
           <h2 className="m-0 text-[32px] font-bold text-text tracking-[-0.02em] font-display">Companies</h2>
           <p className="m-0 text-[13.5px] text-muted mt-1.5">Browse hiring partners and their requirements</p>
+        </div>
 
         {/* Search */}
         <div className="flex flex-col sm:flex-row gap-3">
@@ -199,6 +202,7 @@ const CompaniesShowcase = () => {
               value={search}
               onChange={e => { setSearch(e.target.value); resetPage(); }}
             />
+          </div>
           <button
             onClick={() => setShowFilters(v => !v)}
             className={`flex items-center gap-2 border rounded-lg px-5 h-11 text-[13px] font-medium shrink-0 transition-colors cursor-pointer ${
@@ -219,6 +223,7 @@ const CompaniesShowcase = () => {
             <PiPlus size={18} />
             Add Company / JD
           </button>
+        </div>
 
         {showFilters && (
           <FilterPanel filters={filters} setFilters={(fn) => { setFilters(fn); resetPage(); }} allBranches={allBranches} />
@@ -287,3 +292,4 @@ const CompaniesShowcase = () => {
   );
 };
 
+export default CompaniesShowcase;

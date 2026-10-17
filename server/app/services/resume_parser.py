@@ -13,6 +13,9 @@ Key design decisions:
   - Returns structured JSON matching the v2.0 database schema (parsed_data JSONB column).
 """
 
+import os
+import re
+import json
 import logging
 from typing import Optional, List, Dict, Any
 
@@ -409,6 +412,7 @@ class ResumeParser:
 
     def _extract_text_from_docx(self, docx_path: str) -> str:
         """Extract text from DOCX using python-docx."""
+        try:
             from docx import Document
             doc = Document(docx_path)
             paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
@@ -420,7 +424,9 @@ class ResumeParser:
                         if text:
                             paragraphs.append(text)
             return "\n".join(paragraphs)
+        except Exception as e:
             logger.error(f"Error extracting text from DOCX {docx_path}: {e}")
+            return ""
 
     # ------------------------------------------------------------------
     # Section Splitting (from eightfold approach)
@@ -528,12 +534,14 @@ class ResumeParser:
         for pat in GPA_PATTERNS:
             m = pat.search(edu_text)
             if m:
+                try:
                     gpa = float(m.group(1))
                     # Normalize if it's on a 4.0 scale
                     if gpa <= 4.0 and "/4" in edu_text:
                         gpa = round(gpa * 2.5, 2)
                     break
                 except (ValueError, IndexError):
+                    continue
 
         # --- Institution ---
         institution = None
@@ -618,6 +626,7 @@ class ResumeParser:
         for alias, canonical in SKILL_ALIASES.items():
             if len(alias) <= 2:
                 pattern = r"(?<![a-zA-Z])" + re.escape(alias) + r"(?![a-zA-Z])"
+            else:
                 pattern = r"\b" + re.escape(alias) + r"\b"
 
             if re.search(pattern, combined):

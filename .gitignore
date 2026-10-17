@@ -1,21 +1,35 @@
+# Dependencies
+node_modules/
+server/venv/
+venv/
 
 # Python
-server/venv/
 __pycache__/
 *.pyc
 
+# Build output
+build/
+client/build/
 
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
 
+# Logs and OS files
+*.log
+npm-debug.log*
+.DS_Store
 
+# Uploaded resumes
+/server/uploads/*
+!/server/uploads/.gitkeep
 
-# Downloaded ML model cache (HF_HOME/TRANSFORMERS_CACHE) - large binaries,
-# re-downloaded per machine from MODEL_CACHE_DIR in server/.env, never committed.
+# Downloaded ML model cache - re-downloaded per machine, never committed
 /server/assets/models/cache/
 
-# Claude Code local config - not part of the app, machine/tool-specific.
+# Claude Code local config
 .claude/
 client/.claude/
 server/.claude/
 CLAUDE.md
-client/CLAUDE.md
-server/CLAUDE.md

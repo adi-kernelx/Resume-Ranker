@@ -1,7 +1,10 @@
+import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TopBar } from './components/common/Header';
+import Dashboard from './components/Dashboard/Dashboard';
 import ATSDashboard from './pages/ATSDashboard';
+import CompaniesShowcase from './components/Company/CompaniesShowcase';
 import ResumeResultPage from './pages/ResumeResultPage';
 import Leaderboard from './pages/Leaderboard';
 
@@ -17,6 +20,7 @@ const queryClient = new QueryClient();
 const Shell = () => {
   const { user } = useAuth();
 
+  return (
     <div className="flex flex-col h-screen overflow-hidden bg-bg">
       <TopBar />
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -47,3 +51,4 @@ function App() {
   );
 }
 
+export default App;

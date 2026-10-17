@@ -1,9 +1,14 @@
+import axios from 'axios';
 import { supabase } from '../contexts/AuthContext';
 
 // In dev, set REACT_APP_API_URI in .env.local to point at the backend (see .env.example).
 // In production, the frontend is served from the same domain as the backend, so '/api' works as-is.
 const API_URL = process.env.REACT_APP_API_URI || '/api';
 
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
   },
 });
 
@@ -20,6 +25,7 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+export const uploadResume = (formData) => {
   return api.post('/resumes/', formData);
 };
 
@@ -27,6 +33,8 @@ export const getUploadStatus = (jobId) => {
   return api.get(`/resumes/status/${jobId}`);
 };
 
+export const getResumeById = (id) => {
+  return api.get(`/resumes/${id}`);
 };
 
 export const getResumes = () => {
@@ -51,3 +59,4 @@ export const createCompany = (formData) => {
 
 export const apiDocsUrl = `${API_URL}/docs`;
 
+export default api;
