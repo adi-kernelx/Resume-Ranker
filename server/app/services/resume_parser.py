@@ -20,6 +20,7 @@ import fitz  # PyMuPDF
 
 from app.services.github_service import GitHubService
 from app.services.nlp_model import get_nlp
+from app.services.llm_service import get_llm_service
 
 def bayesian_confidence_update(prior: float, source_reliability: float, agreement: bool) -> float:
     """Update confidence using Bayes' Theorem."""
@@ -112,7 +113,23 @@ SECTION_PATTERNS: Dict[str, str] = {
     "contact":    r"(?i)^(?:contact\s*(?:info(?:rmation)?|details)?|personal\s*(?:info(?:rmation)?|details))$",
     "education":  r"(?i)^(?:education|academic\s*(?:profile|qualifications?|background)|qualifications?)$",
     "skills":     r"(?i)^(?:(?:technical\s+)?skills|technologies|tech\s*stack|core\s*competenc(?:ies|y)|programming\s*languages|tools\s*(?:and|&)\s*technologies)$",
-    "experience": r"(?i)^(?:(?:work\s+|professional\s+)?experience|employment(?:\s*history)?|internship(?:s)?|work\s*history)$",
+    # Covers the section headings real resumes actually use. "RESEARCH
+    # EXPERIENCE" and "POSITIONS OF RESPONSIBILITY" previously matched nothing,
+    # so a resume whose only work history sat under those headings was parsed as
+    # having zero experience - and the anti-hallucination guard below then
+    # discarded the LLM's correct extraction too.
+    "experience": (
+        r"(?i)^(?:"
+        r"(?:work|professional|research|industry|relevant|technical|teaching|clinical|volunteer)?\s*experience"
+        r"|employment(?:\s*history)?"
+        r"|internship(?:s)?(?:\s*(?:and|&)\s*experience)?"
+        r"|work\s*history"
+        r"|positions?\s*of\s*responsibility"
+        r"|leadership(?:\s*(?:experience|roles?|positions?))?"
+        r"|extra[\s-]?curricular(?:\s*activities)?"
+        r"|career\s*history"
+        r")$"
+    ),
     "projects":   r"(?i)^(?:(?:academic\s+|technical\s+|personal\s+|selected\s+)?projects?|project\s*(?:work|experience)|portfolio)$",
     "achievements": r"(?i)^(?:achievements?|awards?|honors?|certifications?|publications?)$",
     "summary":    r"(?i)^(?:(?:career\s+|professional\s+)?summary|(?:career\s+)?objective|profile|about\s*me)$",
@@ -242,10 +259,25 @@ class ResumeParser:
         experience = self._extract_experience(raw_text, sections)
         projects = self._extract_projects(raw_text, sections)
 
-        # 2. LLM Structured Extraction (DISABLED - too slow on CPU, heuristics are sufficient)
-        # llm_svc = LLMService()
-        # llm_data = llm_svc.extract_resume_data(raw_text) or {}
+        # 2. LLM Structured Extraction.
+        #
+        # This was disabled when the only provider was a local Ollama model that
+        # took ~53s on CPU. With a hosted provider it costs a few seconds, and
+        # it is decisively better than the layout heuristics on real resumes:
+        # PyMuPDF flattens a two-column layout into a single line stream, so a
+        # right-aligned date ("Jul 2026 - Present") and wrapped bullet
+        # continuations both look exactly like new title lines to the regex,
+        # producing phantom projects titled "Jul 2026" or "bounded to top-K".
+        # The LLM reads the whole section and gets the grouping right.
+        #
+        # Heuristics are kept as the fallback: if the call fails or the provider
+        # is unconfigured, llm_data stays empty and every `or` below falls back
+        # to the regex result, so extraction degrades rather than breaking.
         llm_data = {}
+        try:
+            llm_data = get_llm_service().extract_resume_data(raw_text) or {}
+        except Exception:
+            logger.exception("LLM structured extraction failed; falling back to heuristics.")
 
         # 3. Merging LLM and Heuristic data BEFORE GitHub
         # Merge education: If LLM missed GPA but Regex found it, inject it.
@@ -260,8 +292,19 @@ class ResumeParser:
                 final_education[0]["end_year"] = education[0]["end_year"]
                 
         final_experience = llm_data.get("experience") or experience
-        # Prevent LLM from hallucinating an Experience section when there isn't one
-        if "experience" not in section_order:
+        # Guard against the LLM inventing an Experience section that isn't in the
+        # document. This keys off section_order, so it is only as good as the
+        # header patterns above - when those missed "RESEARCH EXPERIENCE" it
+        # silently deleted a correctly-extracted role. Sections that legitimately
+        # carry work history all map to "experience" now, and we only discard
+        # when the document truly has no such section anywhere.
+        EXPERIENCE_BEARING_SECTIONS = {"experience"}
+        if not (EXPERIENCE_BEARING_SECTIONS & set(section_order)):
+            if final_experience:
+                logger.info(
+                    "Discarding %d extracted experience entries: no experience-bearing "
+                    "section found in the document.", len(final_experience)
+                )
             final_experience = []
             
         final_projects = llm_data.get("projects") or projects
